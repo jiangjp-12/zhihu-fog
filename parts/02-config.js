@@ -28,6 +28,9 @@ const ROLE_GOAL = {
 };
 
 const CONFIG = {
+  // serverAI: 默认走本站后端代理 /api/ai（用户无需填任何 key）。
+  // 启动时由 /api/me 的 llm_ready 校正；离线 file:// 打开会自动关掉。
+  serverAI: true,
   api: { base_url:'', api_key:'', model:'llama-3.3-70b-versatile', temperature:0.85, max_tokens:110, preset:'groq' },
   prompt: DEFAULT_PROMPT,
   persona: 'tech',

@@ -93,12 +93,26 @@ ok('去掉昵称前缀与引号', sanitize('"摸鱼的鱼：这事儿没那么�
 ok('超长输出被截断', sanitize('啊'.repeat(200)).length <= 61);
 
 console.log('');
-console.log('[7] 降级路径（未配置 API）');
+console.log('[7] 三级降级链：自带Key > 服务端代理 > 本地模板');
 CONFIG.api.base_url = ''; CONFIG.api.api_key = '';
+
+// 7a. 完全无 API（离线 file:// 场景）-> 本地模板
+CONFIG.serverAI = false;
 buildPlayers(); STATE.post = MOCK_POSTS.tech; STATE.round = 1; STATE.logs = [];
 speak(STATE.players[0], 'discuss').then((t) => {
-  ok('无 API 时 speak() 返回本地模板文本', typeof t === 'string' && t.length > 0);
-  ok('日志记录 mode=本地模板', STATE.logs.length === 1 && STATE.logs[0].mode === '本地模板');
+  ok('无 API 时返回本地模板文本', typeof t === 'string' && t.length > 0);
+  ok('mode=本地模板', STATE.logs.length === 1 && STATE.logs[0].mode === '本地模板');
   console.log('  样例发言: ' + t);
+
+  // 7b. 启用服务端代理但不可达（Node 无 /api/ai）-> 降级且不抛错
+  CONFIG.serverAI = true;
+  STATE.logs = [];
+  return speak(STATE.players[1], 'discuss');
+}).then((t2) => {
+  ok('服务端不可达时仍返回可用文本', typeof t2 === 'string' && t2.length > 0);
+  ok('mode=降级 并记录错误原因',
+    STATE.logs.length === 1 && STATE.logs[0].mode === '降级' && !!STATE.logs[0].error);
+  console.log('  降级发言: ' + t2);
+  CONFIG.serverAI = false;
   __done();
 });

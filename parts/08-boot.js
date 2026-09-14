@@ -70,11 +70,13 @@ function loadCfg() {
     if (s) Object.assign(CONFIG, { ...CONFIG, ...s, api: { ...CONFIG.api, ...(s.api || {}) } });
   } catch (e) {}
 }
+/** 三种模式：自带Key（直连） > 服务端默认模型 > 本地拟人模板 */
 function updateApiState() {
-  const on = !!(CONFIG.api.base_url && CONFIG.api.api_key);
+  const own = !!(CONFIG.api.base_url && CONFIG.api.api_key);
   const el = document.getElementById('apiState');
-  el.textContent = on ? 'API 已配置' : '本地模板';
-  el.style.background = on ? 'rgba(16,185,129,.22)' : '';
+  if (own)                 { el.textContent = '自带 Key'; el.style.background = 'rgba(16,185,129,.22)'; }
+  else if (CONFIG.serverAI){ el.textContent = '服务端默认模型'; el.style.background = 'rgba(0,132,255,.22)'; }
+  else                     { el.textContent = '本地模板'; el.style.background = ''; }
 }
 function resetPrompt() {
   CONFIG.prompt = DEFAULT_PROMPT;
@@ -159,13 +161,22 @@ async function checkAuth() {
     el.textContent = '登录失败：' + q.get('login_error');
     el.classList.remove('hidden');
   }
-  if (location.protocol === 'file:') { renderAuth({ login: false, local: true }); return; }
+  // 离线 file:// 无后端：关掉服务端 AI，直接用本地模板
+  if (location.protocol === 'file:') {
+    CONFIG.serverAI = false; updateApiState();
+    renderAuth({ login: false, local: true });
+    return;
+  }
   try {
     const r = await fetch('/api/me', { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error('no backend');
-    renderAuth(await r.json());
+    const s = await r.json();
+    CONFIG.serverAI = s.llm_ready !== false;     // 服务端没配 key 就别白跑一趟
+    updateApiState();
+    renderAuth(s);
   } catch (e) {
-    renderAuth({ login: false, local: true });   // 静态托管无 Function，降级
+    CONFIG.serverAI = false; updateApiState();    // 静态托管无 Function，降级
+    renderAuth({ login: false, local: true });
   }
 }
 

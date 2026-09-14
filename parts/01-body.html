@@ -126,8 +126,8 @@
         <select id="cfgPreset" onchange="applyPreset(this.value)"></select></label>
       <label class="block text-xs opacity-65">base_url
         <input id="cfgBase" placeholder="https://api.groq.com/openai/v1"></label>
-      <label class="block text-xs opacity-65">api_key（仅存本机 localStorage）
-        <input id="cfgKey" type="password" placeholder="留空则用本地拟人模板"></label>
+      <label class="block text-xs opacity-65">api_key（选填，仅存本机 localStorage）
+        <input id="cfgKey" type="password" placeholder="留空即用服务端默认模型"></label>
       <label class="block text-xs opacity-65">model
         <input id="cfgModel"></label>
       <div class="grid grid-cols-2 gap-2">

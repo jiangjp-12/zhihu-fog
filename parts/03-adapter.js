@@ -12,7 +12,28 @@ function pushLog(entry) {
   renderLogs();
 }
 
-/** OpenAI 兼容格式调用；失败抛错由上层降级 */
+/**
+ * 默认路径：调用本站后端代理（/api/ai）。
+ * 用户无需填任何 key —— 项目方的 key 存在服务端 secret 里，不下发浏览器。
+ * 失败抛错，由上层决定降级。
+ */
+async function callServerAI(messages, temperature, maxTokens) {
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature, max_tokens: maxTokens }),
+  });
+  if (!res.ok) {
+    let why = 'HTTP ' + res.status;
+    try { const e = await res.json(); why = e.message || e.error || why; } catch (_) {}
+    throw new Error(why);
+  }
+  const data = await res.json();
+  if (!data.content) throw new Error('响应为空');
+  return data;
+}
+
+/** OpenAI 兼容格式调用（用户自带 key 的直连路径）；失败抛错由上层降级 */
 async function callAI(messages, cfg) {
   const base = (cfg.base_url || '').replace(/\/+$/, '');
   const res = await fetch(base + '/chat/completions', {
@@ -98,43 +119,74 @@ function buildContext(phase) {
  */
 async function speak(actor, phase) {
   const temp = CONFIG.temps[phase] ?? CONFIG.api.temperature;
-  const useAPI = !!(CONFIG.api.base_url && CONFIG.api.api_key);
   const t0 = performance.now();
-
-  if (!useAPI) {
-    const text = localTemplate(actor, phase);
-    pushLog({ actor: actor.name, phase, mode: '本地模板', temp, ms: 0, prompt: '(未配置 API)', reply: text });
-    return text;
-  }
   const messages = [
     { role: 'system', content: buildSystem(actor) },
     { role: 'user',   content: buildContext(phase) },
   ];
-  try {
-    const raw = await callAI(messages, { ...CONFIG.api, temperature: temp });
-    const text = sanitize(raw);
-    pushLog({ actor: actor.name, phase, mode: 'API', temp, ms: Math.round(performance.now() - t0),
-              prompt: messages[1].content.slice(-90), reply: text });
-    return text;
-  } catch (e) {
-    const text = localTemplate(actor, phase);
-    pushLog({ actor: actor.name, phase, mode: '降级', temp, ms: Math.round(performance.now() - t0),
-              prompt: '调用失败', reply: text, error: String(e.message || e) });
-    return text;
+  const brief = messages[1].content.slice(-90);
+  const ownKey = !!(CONFIG.api.base_url && CONFIG.api.api_key);
+
+  // 第一优先：用户在调试台自带的 key（直连，不经过本站后端）
+  if (ownKey) {
+    try {
+      const text = sanitize(await callAI(messages, { ...CONFIG.api, temperature: temp }));
+      pushLog({ actor: actor.name, phase, mode: '自带Key', temp,
+                ms: Math.round(performance.now() - t0), prompt: brief, reply: text });
+      return text;
+    } catch (e) {
+      pushLog({ actor: actor.name, phase, mode: '自带Key失败', temp,
+                ms: Math.round(performance.now() - t0), prompt: brief, reply: '(转服务端)',
+                error: String(e.message || e) });
+      // 继续往下走服务端代理
+    }
   }
+
+  // 第二优先：本站后端代理（默认路径，用户无需配置任何东西）
+  if (CONFIG.serverAI) {
+    try {
+      const r = await callServerAI(messages, temp, CONFIG.api.max_tokens);
+      const text = sanitize(r.content);
+      pushLog({ actor: actor.name, phase, mode: '服务端', temp, ms: r.ms ?? Math.round(performance.now() - t0),
+                prompt: brief, reply: text, model: r.model });
+      return text;
+    } catch (e) {
+      const text = localTemplate(actor, phase);
+      pushLog({ actor: actor.name, phase, mode: '降级', temp,
+                ms: Math.round(performance.now() - t0), prompt: brief, reply: text,
+                error: String(e.message || e) });
+      return text;
+    }
+  }
+
+  // 兜底：本地拟人模板
+  const text = localTemplate(actor, phase);
+  pushLog({ actor: actor.name, phase, mode: '本地模板', temp, ms: 0, prompt: '(未启用 API)', reply: text });
+  return text;
 }
 
 /** 调试台"测试调用"按钮 */
 async function testAI() {
   readCfgFromUI();
-  if (!CONFIG.api.base_url || !CONFIG.api.api_key) { alert('请先填 base_url 和 api_key'); return; }
+  const msgs = [{ role:'system', content:'用一句话回应，不超过 20 字。' },
+                { role:'user',   content:'测试连通性' }];
+  const own = !!(CONFIG.api.base_url && CONFIG.api.api_key);
   const t0 = performance.now();
   try {
-    const r = await callAI([{ role:'system', content:'用一句话回应，不超过 20 字。' },
-                            { role:'user',   content:'测试连通性' }], CONFIG.api);
-    pushLog({ actor:'(测试)', phase:'test', mode:'API', temp:CONFIG.api.temperature,
-              ms:Math.round(performance.now()-t0), prompt:'测试连通性', reply:sanitize(r) });
-    alert('调用成功：' + sanitize(r));
+    let text, mode, ms;
+    if (own) {                                   // 填了就测直连
+      text = sanitize(await callAI(msgs, CONFIG.api));
+      mode = '自带Key'; ms = Math.round(performance.now() - t0);
+    } else if (CONFIG.serverAI) {                // 没填就测服务端默认模型
+      const r = await callServerAI(msgs, CONFIG.api.temperature, 60);
+      text = sanitize(r.content); mode = '服务端'; ms = r.ms ?? Math.round(performance.now() - t0);
+    } else {
+      alert('当前无可用 API：离线打开或服务端未配置，游戏将使用本地拟人模板。');
+      return;
+    }
+    pushLog({ actor:'(测试)', phase:'test', mode, temp:CONFIG.api.temperature, ms,
+              prompt:'测试连通性', reply:text });
+    alert(`调用成功（${mode}，${ms}ms）：` + text);
   } catch (e) {
     pushLog({ actor:'(测试)', phase:'test', mode:'失败', ms:Math.round(performance.now()-t0),
               prompt:'测试连通性', reply:'-', error:String(e.message||e) });
