@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.DS_Store
+
+# 凭证相关，永不入库
+.env
+.env.*
+.dev.vars
+*.key
+*secret*

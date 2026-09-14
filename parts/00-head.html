@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>热帖迷雾：评论区伪人局</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!--
+  热帖迷雾：评论区伪人局 —— 单文件 HTML 原型
+  ============================================
+  3 真人 + 2 AI 伪人。人类找出并折叠 AI，AI 伪装存活。
+
+  【开源包结构（预留，本原型未实际拆分文件）】
+  ai-bot/
+  ├── config.json   # API 配置        -> 对应 CONFIG.api
+  ├── prompt.md     # 系统提示词      -> 对应 CONFIG.prompt
+  ├── adapter.js    # API 调用适配层  -> 对应 callAI()
+  ├── styles.json   # AI 人格参数     -> 对应 CONFIG.personas
+  ├── logs.json     # 调用日志        -> 对应 STATE.logs（可导出）
+  └── README.md     # 调试指南
+
+  【已做的假设】
+  1. 官方文档未提供刘看山素材/3D 模型，全部改为手绘 SVG。
+  2. 单机原型：仅用户是真人，其余 4 席由 LLM/本地模板驱动。
+  3. 未配置 API Key 时自动降级到本地拟人模板，游戏流程不受影响。
+  4. OAuth 的 app_key 只存在于 Pages Function 服务端，前端只拿会话 Cookie。
+-->
+<style>
+  :root{--zh:#0084ff;--zh2:#175199;--bg:#0b1016;}
+  body{background:radial-gradient(ellipse at 20% 0%,#16233a 0%,#0b1016 55%);color:#e8eef6;
+       font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;overflow-x:hidden}
+  .glass{background:rgba(255,255,255,.055);backdrop-filter:blur(14px);
+         border:1px solid rgba(255,255,255,.1);border-radius:16px}
+  .glass-b{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  /* 阶段过渡全屏遮罩：纯 CSS transition，无动画库 */
+  #curtain{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+           flex-direction:column;gap:18px;opacity:0;pointer-events:none;
+           transition:opacity .5s ease,backdrop-filter .5s ease;backdrop-filter:blur(0px)}
+  #curtain.show{opacity:1;pointer-events:all;backdrop-filter:blur(8px)}
+  #curtain.night{background:rgba(2,4,9,.96)}
+  #curtain.day{background:rgba(255,247,224,.13)}
+  #curtain.norm{background:rgba(6,11,20,.9)}
+  #curtain .lks{transform:translateY(26px) scale(.9);transition:transform .55s cubic-bezier(.2,1.3,.3,1)}
+  #curtain.show .lks{transform:translateY(0) scale(1)}
+  .ct-title{font-size:26px;font-weight:800;letter-spacing:2px;text-shadow:0 2px 20px rgba(0,132,255,.5)}
+  .fade-in{animation:fi .35s ease both}
+  @keyframes fi{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .pulse{animation:pl 1.4s ease-in-out infinite}
+  @keyframes pl{0%,100%{opacity:1}50%{opacity:.45}}
+  .blink{animation:bk 3.4s ease-in-out infinite}
+  @keyframes bk{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+  .dead{filter:grayscale(1);opacity:.42}
+  .bar{height:4px;background:linear-gradient(90deg,var(--zh),#43e0ff);border-radius:9px;transition:width 1s linear}
+  .chip{padding:3px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.16)}
+  .btn{background:var(--zh);border-radius:10px;font-weight:600;transition:.18s;color:#fff}
+  .btn:hover:not(:disabled){background:#2a97ff;transform:translateY(-1px)}
+  .btn:disabled{opacity:.34;cursor:not-allowed}
+  .btn-g{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);border-radius:10px;transition:.18s}
+  .btn-g:hover{background:rgba(255,255,255,.16)}
+  textarea,input,select{background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.14);
+    border-radius:9px;padding:7px 10px;color:#e8eef6;font-size:13px;width:100%}
+  textarea:focus,input:focus,select:focus{outline:2px solid rgba(0,132,255,.55);outline-offset:0}
+  .reply{border-left:2px solid rgba(0,132,255,.34);margin-left:14px;padding-left:11px}
+  #drawer{transition:transform .32s ease}
+  #drawer.closed{transform:translateY(calc(100% - 44px))}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .btn:focus-visible,.btn-g:focus-visible,button:focus-visible{outline:2px solid #43e0ff;outline-offset:2px}
+  @media(max-width:900px){.cols{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body class="min-h-screen">

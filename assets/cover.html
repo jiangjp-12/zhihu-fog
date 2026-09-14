@@ -1,0 +1,87 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden}
+body{background:radial-gradient(ellipse at 22% 4%,#1b2c48 0%,#0b1016 58%);
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#e8eef6;position:relative}
+.grid{position:absolute;inset:0;opacity:.05;
+  background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+  background-size:64px 64px}
+.glow{position:absolute;border-radius:50%;filter:blur(90px)}
+.g1{width:760px;height:760px;background:rgba(0,132,255,.3);left:-190px;top:-230px}
+.g2{width:560px;height:560px;background:rgba(200,60,255,.16);right:60px;bottom:-190px}
+.wrap{position:relative;height:100%;display:flex;align-items:center;padding:0 108px;gap:64px}
+.left{flex:1}
+.tag{display:inline-flex;align-items:center;gap:10px;padding:9px 20px;border-radius:999px;
+  background:rgba(0,132,255,.15);border:1px solid rgba(0,132,255,.45);font-size:20px;color:#7ec8ff;margin-bottom:28px}
+h1{font-size:118px;font-weight:900;letter-spacing:5px;line-height:1.06;
+  background:linear-gradient(180deg,#fff 30%,#8fc9ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:40px;font-weight:700;color:#43a9ff;letter-spacing:9px;margin-top:14px}
+.desc{font-size:26px;line-height:1.7;opacity:.72;margin-top:30px;max-width:790px}
+.chips{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap}
+.chip{padding:11px 22px;border-radius:12px;font-size:22px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
+.chip b{color:#43a9ff}
+.right{width:600px;display:flex;flex-direction:column;align-items:center;gap:26px;position:relative}
+.seats{display:flex;gap:15px}
+.seat{width:96px;height:120px;border-radius:18px;background:rgba(255,255,255,.055);
+  border:1px solid rgba(255,255,255,.13);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;backdrop-filter:blur(8px)}
+.seat .av{font-size:42px}
+.seat .lb{font-size:15px;opacity:.55}
+.seat.ai{border-color:rgba(232,90,255,.55);background:rgba(232,90,255,.11)}
+.seat.ai .lb{color:#f0a6ff;opacity:.95}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;padding:22px 26px;width:100%;backdrop-filter:blur(8px)}
+.card .t{font-size:23px;font-weight:700;line-height:1.45}
+.card .m{font-size:17px;opacity:.5;margin-top:10px}
+.foot{position:absolute;left:108px;bottom:44px;font-size:20px;opacity:.42;letter-spacing:1px}
+</style></head><body>
+<div class="grid"></div><div class="glow g1"></div><div class="glow g2"></div>
+<div class="wrap">
+  <div class="left">
+    <div class="tag">🦌 知乎黑客松 2026 · 校园新锐季</div>
+    <h1>热帖迷雾</h1>
+    <div class="sub">评论区伪人局</div>
+    <p class="desc">5 席 = 3 个真人 + 2 个 AI 伪人。在热帖评论区里聊同一个话题，
+      靠说话方式辨认彼此。人类要找出伪人并投票折叠，伪人要伪装到最后。</p>
+    <div class="chips">
+      <div class="chip"><b>10</b> 个阶段</div>
+      <div class="chip"><b>楼中楼</b> 讨论</div>
+      <div class="chip"><b>私密</b> 标记</div>
+      <div class="chip"><b>黑夜</b> 双选判定</div>
+      <div class="chip"><b>可调试</b> AI bot</div>
+    </div>
+  </div>
+  <div class="right">
+    <img src="frame-computer.png" width="330" height="330" alt="刘看山"
+         style="display:block;filter:drop-shadow(0 24px 50px rgba(0,0,0,.6))">
+    <div class="seats">
+      <div class="seat"><span class="av">🦊</span><span class="lb">真人</span></div>
+      <div class="seat"><span class="av">🐧</span><span class="lb">真人</span></div>
+      <div class="seat ai"><span class="av">🐼</span><span class="lb">伪人？</span></div>
+      <div class="seat"><span class="av">🦉</span><span class="lb">真人</span></div>
+      <div class="seat ai"><span class="av">🐳</span><span class="lb">伪人？</span></div>
+    </div>
+    <div class="card">
+      <div class="t">为什么现在的手机越来越重，厂商却都在宣传轻薄？</div>
+      <div class="m">💬 楼中楼 · 5 人在场 · 倒计时 01:30</div>
+    </div>
+  </div>
+</div>
+<div class="foot">单页 HTML · Tailwind + 原生 JS · Cloudflare Pages · 知乎 OAuth</div>
+<script>
+function lks(size){const s=size/175;return `<svg viewBox="0 0 175 150" width="${size}" height="${size*150/175}">
+<ellipse cx="75" cy="128" rx="34" ry="17" fill="rgba(0,0,0,.2)"/>
+<path d="M40 44 L30 16 L57 32 Z" fill="#0084ff"/><path d="M110 44 L120 16 L93 32 Z" fill="#0084ff"/>
+<path d="M43 43 L37 25 L54 34 Z" fill="#9fd4ff"/><path d="M107 43 L113 25 L96 34 Z" fill="#9fd4ff"/>
+<ellipse cx="75" cy="76" rx="42" ry="38" fill="#fff"/>
+<path d="M33 70a42 38 0 0 1 84 0z" fill="#0084ff"/>
+<ellipse cx="75" cy="94" rx="20" ry="15" fill="#f3f8ff"/>
+<ellipse cx="75" cy="88" rx="6" ry="4.5" fill="#12283f"/>
+<path d="M75 92v5M69 100q6 4 12 0" stroke="#12283f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+<path d="M96 60q22-8 30 10t-14 16q-12 3-18-6z" fill="#eaf4ff" stroke="#0084ff" stroke-width="2.2"/>
+<path d="M104 66q9 0 13 7" stroke="#0084ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<circle cx="60" cy="72" r="5.5" fill="#12283f"/><circle cx="62" cy="70" r="1.8" fill="#fff"/>
+</svg>`}
+/* 已改用知乎官方刘看山 3D 素材 frame-computer.png，不再注入手绘 SVG */
+</script></body></html>

@@ -1,0 +1,170 @@
+<!-- ===== 全屏阶段过渡遮罩（SVG 由 JS 注入） ===== -->
+<div id="curtain" class="norm" role="status" aria-live="assertive">
+  <div class="lks" id="ctArt"></div>
+  <div class="ct-title" id="ctTitle"></div>
+  <div class="text-sm opacity-70" id="ctSub"></div>
+</div>
+
+<!-- ===== 顶部：阶段指示 + 倒计时 ===== -->
+<header class="sticky top-0 z-40 glass rounded-none border-x-0 border-t-0 px-4 py-2.5">
+  <div class="max-w-6xl mx-auto flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2 shrink-0">
+      <span id="logoBox" class="w-8 h-8 grid place-items-center"></span>
+      <b class="tracking-tight">热帖迷雾</b>
+      <span class="chip opacity-70 hidden sm:inline">评论区伪人局</span>
+    </div>
+    <div class="flex-1 min-w-[170px]">
+      <div class="flex items-center gap-2 text-sm">
+        <span id="phaseName" class="font-semibold text-[--zh]" style="color:#43a9ff">准备中</span>
+        <span class="opacity-40">·</span>
+        <span id="phaseHint" class="opacity-60 text-xs truncate">选择你的圈子</span>
+        <span id="clock" class="ml-auto font-mono text-lg tabular-nums" aria-live="polite">--</span>
+      </div>
+      <div class="mt-1.5 bg-white/10 rounded-full overflow-hidden"><div id="bar" class="bar" style="width:100%"></div></div>
+    </div>
+    <!-- 知乎 OAuth 登录态（右上角） -->
+    <div class="shrink-0" id="authBox">
+      <button class="btn-g text-xs px-3 py-1.5" onclick="zhLogin()">知乎账号登录</button>
+    </div>
+  </div>
+</header>
+
+<!-- 出局观战提示条 -->
+<div id="specBar" class="hidden bg-amber-500/15 border-b border-amber-400/30 text-amber-200 text-center text-sm py-1.5">
+  你已出局，正在观战 · 可以看发言与投票，但不能发言 / 投票 / 标记
+</div>
+<div id="loginErr" class="hidden bg-red-500/15 border-b border-red-400/30 text-red-200 text-center text-sm py-1.5"></div>
+
+<main class="max-w-6xl mx-auto p-4 pb-16">
+  <!-- ===== 入场：选圈子 ===== -->
+  <section id="lobby" class="glass p-6 fade-in">
+    <h1 class="text-xl font-bold mb-1">选择你的圈子</h1>
+    <p class="text-sm opacity-65 mb-4">5 席 = 3 真人 + 2 AI 伪人。找出伪人并投票折叠，或伪装到最后。</p>
+    <div id="circles" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5"></div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2.5 glass-b px-3 py-2">
+        <span id="myAvatar" class="w-9 h-9 rounded-full grid place-items-center bg-white/10 text-lg">🦊</span>
+        <div class="text-sm leading-tight">
+          <div class="opacity-55 text-xs">系统分配昵称</div>
+          <b id="myName">匿名用户</b>
+        </div>
+      </div>
+      <button class="btn px-5 py-2.5" onclick="startGame()">进入房间</button>
+      <span class="text-xs opacity-50" id="lobbyTip"></span>
+    </div>
+  </section>
+
+  <!-- ===== 主对局 ===== -->
+  <div id="game" class="hidden cols grid gap-4" style="grid-template-columns:1fr 300px">
+    <!-- 左：热帖 + 评论区 -->
+    <div class="space-y-4 min-w-0">
+      <article class="glass p-5" id="postCard" aria-live="polite"></article>
+
+      <section class="glass p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-sm">评论区 <span id="cmtCount" class="opacity-50 font-normal"></span></h2>
+          <span id="roundTag" class="chip opacity-70"></span>
+        </div>
+        <div id="comments" class="space-y-3 max-h-[46vh] overflow-y-auto pr-1"></div>
+
+        <!-- 发言 / 回复输入 -->
+        <div id="composer" class="mt-3 pt-3 border-t border-white/10">
+          <div id="replyTo" class="hidden text-xs mb-1.5 flex items-center gap-2">
+            <span class="opacity-60">回复 <b id="replyToName"></b></span>
+            <button class="opacity-50 hover:opacity-90 underline" onclick="clearReply()">取消</button>
+          </div>
+          <div class="flex gap-2">
+            <label for="input" class="sr-only">写评论</label>
+            <textarea id="input" rows="2" placeholder="只聊热点，别聊 AI…（Enter 发送，Shift+Enter 换行）"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMine()}"></textarea>
+            <button class="btn px-4 self-stretch shrink-0" onclick="sendMine()" id="sendBtn">发送</button>
+          </div>
+          <div class="text-xs opacity-45 mt-1" id="composerTip"></div>
+        </div>
+      </section>
+
+      <!-- 观战者频道（存活玩家看不到） -->
+      <section id="specChat" class="hidden glass p-4">
+        <h2 class="font-semibold text-sm mb-2 text-amber-200">观战席频道 <span class="opacity-50 font-normal text-xs">存活玩家看不到</span></h2>
+        <div id="specMsgs" class="space-y-1.5 text-sm max-h-32 overflow-y-auto mb-2"></div>
+        <div class="flex gap-2">
+          <label for="specInput" class="sr-only">观战席发言</label>
+          <input id="specInput" placeholder="和其他观战者聊…" onkeydown="if(event.key==='Enter')sendSpec()">
+          <button class="btn-g px-3 text-sm shrink-0" onclick="sendSpec()">发送</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- 右：玩家卡 / 投票 / 揭晓 -->
+    <aside class="space-y-4">
+      <section class="glass p-4">
+        <h2 class="font-semibold text-sm mb-2.5">在场 <span id="aliveCount" class="opacity-50 font-normal"></span></h2>
+        <div id="players" class="space-y-2"></div>
+      </section>
+      <section id="actionPanel" class="glass p-4 hidden"></section>
+      <section id="revealBox" class="glass p-4 hidden"></section>
+    </aside>
+  </div>
+
+  <!-- ===== 结算 / 复盘 ===== -->
+  <section id="result" class="hidden glass p-6 fade-in"></section>
+</main>
+
+<!-- ===== 底部调试抽屉 ===== -->
+<div id="drawer" class="closed fixed bottom-0 left-0 right-0 z-50 glass rounded-b-none max-h-[74vh] flex flex-col">
+  <button class="h-11 shrink-0 flex items-center justify-center gap-2 text-sm font-medium hover:bg-white/5"
+          onclick="document.getElementById('drawer').classList.toggle('closed')" aria-expanded="false">
+    <span>🛠 调试台</span>
+    <span class="chip opacity-60" id="apiState">本地模板</span>
+    <span class="opacity-40 text-xs">点击展开 / 收起</span>
+  </button>
+  <div class="overflow-y-auto p-4 pt-0 grid md:grid-cols-3 gap-4 text-sm">
+    <!-- API 配置 -->
+    <div class="space-y-2">
+      <h3 class="font-semibold text-xs uppercase opacity-55 tracking-wide">API 配置</h3>
+      <label class="block text-xs opacity-65">预设
+        <select id="cfgPreset" onchange="applyPreset(this.value)"></select></label>
+      <label class="block text-xs opacity-65">base_url
+        <input id="cfgBase" placeholder="https://api.groq.com/openai/v1"></label>
+      <label class="block text-xs opacity-65">api_key（仅存本机 localStorage）
+        <input id="cfgKey" type="password" placeholder="留空则用本地拟人模板"></label>
+      <label class="block text-xs opacity-65">model
+        <input id="cfgModel"></label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block text-xs opacity-65">temperature
+          <input id="cfgTemp" type="number" step="0.05" min="0" max="2"></label>
+        <label class="block text-xs opacity-65">max_tokens
+          <input id="cfgMax" type="number" min="16" max="4096"></label>
+      </div>
+      <label class="block text-xs opacity-65">AI 人格
+        <select id="cfgPersona"></select></label>
+      <div class="flex gap-2 pt-1 flex-wrap">
+        <button class="btn-g px-2.5 py-1 text-xs" onclick="saveCfg()">保存</button>
+        <button class="btn-g px-2.5 py-1 text-xs" onclick="exportCfg()">导出 JSON</button>
+        <button class="btn-g px-2.5 py-1 text-xs" onclick="document.getElementById('impFile').click()">导入</button>
+        <button class="btn-g px-2.5 py-1 text-xs" onclick="testAI()">测试调用</button>
+        <input type="file" id="impFile" accept=".json" class="hidden" onchange="importCfg(event)">
+      </div>
+      <div class="flex gap-3 pt-1 text-xs">
+        <label class="flex items-center gap-1.5"><input type="checkbox" id="cfgShowId" class="w-auto" onchange="saveCfg();renderPlayers()">显示身份</label>
+        <label class="flex items-center gap-1.5"><input type="checkbox" id="cfgLog" class="w-auto" checked onchange="saveCfg()">记录日志</label>
+      </div>
+    </div>
+    <!-- Prompt 编辑 -->
+    <div class="space-y-2 flex flex-col">
+      <h3 class="font-semibold text-xs uppercase opacity-55 tracking-wide">系统提示词（实时生效）</h3>
+      <label for="cfgPrompt" class="sr-only">系统提示词</label>
+      <textarea id="cfgPrompt" rows="13" class="font-mono text-xs flex-1" oninput="CONFIG.prompt=this.value"></textarea>
+      <button class="btn-g px-2.5 py-1 text-xs self-start" onclick="resetPrompt()">恢复默认</button>
+    </div>
+    <!-- 日志 -->
+    <div class="space-y-2 flex flex-col min-h-0">
+      <h3 class="font-semibold text-xs uppercase opacity-55 tracking-wide flex items-center gap-2">
+        调用日志 <span id="logCount" class="chip opacity-60">0</span>
+        <button class="ml-auto btn-g px-2 py-0.5 text-xs" onclick="exportLogs()">导出</button>
+        <button class="btn-g px-2 py-0.5 text-xs" onclick="STATE.logs=[];renderLogs()">清空</button>
+      </h3>
+      <div id="logs" class="font-mono text-[11px] space-y-1.5 overflow-y-auto max-h-[42vh] pr-1"></div>
+    </div>
+  </div>
+</div>

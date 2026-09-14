@@ -1,0 +1,18 @@
+name = "zhihu-fog"
+compatibility_date = "2026-09-01"
+pages_build_output_dir = "dist"
+
+# functions/ 在项目根目录，Pages 会自动编译为路由：
+#   functions/api/oauth/start.js    -> /api/oauth/start
+#   functions/api/oauth/callback.js -> /api/oauth/callback
+#   functions/api/me.js             -> /api/me
+#   functions/api/logout.js         -> /api/logout
+#
+# 凭证一律用 secret 注入，绝不写在本文件里（本文件会进 git）。
+#
+# 会话与 state 存储。必须绑定：Pages Functions 每个请求可能落在不同 isolate，
+# 进程内 Map 会导致 /api/oauth/start 与 /api/oauth/callback 看不到同一份 state
+# （表现为随机「state 无效或已过期」）。
+[[kv_namespaces]]
+binding = "FOG_KV"
+id = "5528e2efde8e4c91b3e4934e75a076b5"
