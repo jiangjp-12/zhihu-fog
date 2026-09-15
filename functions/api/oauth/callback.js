@@ -21,6 +21,12 @@ export async function onRequestGet({ request, env }) {
   if (!code) return fail('缺少授权码');
 
   // --- state 校验：缺失 / 不匹配 / 过期 / 重复使用 一律拒绝 ---
+  //
+  // 保持严格。理由：
+  // 1. hackathon-oauth.md 明确写「黑客松 OAuth 服务已支持 state 原样透传」，
+  //    并说明通用文档里"不回传 state"的历史记录不适用于本流程。
+  // 2. 用户遇到的报错是知乎自己的错误页，发生在到达本回调之前，
+  //    所以放宽 state 并不能解决那个问题，只会白白削弱 CSRF 防护。
   const nonce = readCookie(request, 'fog_oauth_nonce');
   if (!state || !nonce) return fail('state 缺失');
   const rec = await db.get(`state:${state}`);
@@ -28,6 +34,7 @@ export async function onRequestGet({ request, env }) {
   if (rec.used) return fail('state 已被使用');
   if (rec.nonce !== nonce) return fail('state 与当前会话不匹配');
   await db.del(`state:${state}`); // 原子消费，防重放
+  const stateVerified = true;
 
   const appId = env.ZHIHU_OAUTH_APP_ID;
   const appKey = env.ZHIHU_OAUTH_APP_KEY;
@@ -63,6 +70,7 @@ export async function onRequestGet({ request, env }) {
     const sid = randomToken(32);
     await db.put(`sess:${sid}`, {
       accessToken,                                    // 留在服务端
+      stateVerified,                                  // false = 本次未通过 CSRF 校验
       expiresAt: Date.now() + (tokenBody.expires_in || 3600) * 1000,
       user: {
         uid: String(profile.uid ?? ''),

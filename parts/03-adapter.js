@@ -103,7 +103,9 @@ function buildSystem(actor) {
 
 /** 组装上下文：帖子 + 最近发言 */
 function buildContext(phase) {
-  const post = STATE.post;
+  // 帖子可能尚未加载（例如提前进入辩解阶段）。缺失时不抛错，
+  // 否则会连带打断 speak() 的本地模板降级路径。
+  const post = STATE.post || { title: '(话题加载中)', body: '' };
   let ctx = `帖子标题：${post.title}\n帖子摘要：${post.body}\n\n`;
   const recent = STATE.comments.slice(-8).map((c) => `${c.author}：${c.text}`).join('\n');
   if (recent) ctx += `最近的评论：\n${recent}\n\n`;

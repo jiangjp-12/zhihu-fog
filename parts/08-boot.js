@@ -192,9 +192,12 @@ function renderAuth(s) {
     </div>`;
     return;
   }
-  const tip = s.local ? '（需部署到云端后可用）' : '';
+  // 登录是选填增强项：不登录也能玩完整一局（系统会分配匿名昵称）。
+  // 明确标注，避免评委误以为必须登录或功能损坏。
+  const tip = s.local ? '（需部署后可用）' : '（选填）';
   box.innerHTML = `<button class="btn-g text-xs px-3 py-1.5" onclick="zhLogin()"
-      ${s.local ? 'title="本地打开无后端，部署后可用"' : ''}>知乎账号登录${tip}</button>`;
+      title="选填：登录后头像入场。不登录同样可以完整体验，系统会分配匿名昵称">
+      知乎账号登录${tip}</button>`;
 }
 
 /* ---------- 启动 ---------- */

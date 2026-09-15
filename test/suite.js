@@ -114,5 +114,48 @@ speak(STATE.players[0], 'discuss').then((t) => {
     STATE.logs.length === 1 && STATE.logs[0].mode === '降级' && !!STATE.logs[0].error);
   console.log('  降级发言: ' + t2);
   CONFIG.serverAI = false;
-  __done();
-});
+  return regressionNpcSpeak();
+}).then(() => __done());
+
+/**
+ * [8] 回归测试：NPC 必须真的发言。
+ *
+ * 曾经的 bug —— npcSpeak('discuss') 在 runPhase() 之前调用，而 STATE.phase
+ * 是 runPhase 才设定的。npcSpeak 首行守卫 `if (STATE.phase !== phase) return`
+ * 于是立刻返回，NPC 全程一句话都不发。修复方式是把它作为 onStart 回调传入，
+ * 在 phase/gen 就绪后再触发。
+ *
+ * 这个 bug 之前 20 项测试全都没抓到，因为没有任何测试驱动过完整阶段。
+ */
+function regressionNpcSpeak() {
+  console.log('');
+  console.log('[8] 回归：runPhase 的 onStart 时序与 NPC 发言');
+  CONFIG.serverAI = false;                 // 走本地模板，不发网络请求
+  buildPlayers();
+  STATE.post = MOCK_POSTS.tech;
+  STATE.round = 1;
+  STATE.comments = [];
+  STATE.logs = [];
+
+  let seenPhase = null, seenGen = null;
+  const genBefore = STATE.gen || 0;
+
+  // onStart 里观测到的 phase 必须已经是新阶段（旧代码这里会是上一个阶段）
+  const p = runPhase('discuss', 5, null, () => {
+    seenPhase = STATE.phase;
+    seenGen = STATE.gen;
+    npcSpeak('discuss');
+  });
+
+  ok('onStart 触发时 STATE.phase 已是 discuss', seenPhase === 'discuss');
+  ok('onStart 触发时 gen 已递增', seenGen === genBefore + 1);
+
+  return p.then(() => {
+    const npcComments = STATE.comments.filter((c) => c.authorId !== STATE.me.id);
+    ok('5 秒讨论内至少有 1 个 NPC 发言（首条延迟上限 2.6s）', npcComments.length >= 1);
+    ok('发言已计入该玩家 said 计数',
+      npcComments.length === 0 || byId(npcComments[0].authorId).said >= 1);
+    console.log('  NPC 发言数: ' + npcComments.length + ' / 存活 NPC ' + (alive().length - 1));
+    npcComments.slice(0, 3).forEach((c) => console.log('   ' + c.author + '：' + c.text));
+  });
+}

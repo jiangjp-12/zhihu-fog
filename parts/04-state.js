@@ -46,12 +46,43 @@ function buildPlayers() {
   STATE.players.forEach((p) => { STATE.markCounts[p.id] = 0; });
 }
 
-/** 接口调用点：真实接入时替换为知乎热榜 / 搜索 API（见 references/http-api.md） */
+/**
+ * 取一个讨论用的帖子。
+ * 1) 先试服务端热榜代理 /api/hot（需 ZHIHU_ACCESS_SECRET，未配置则 503）
+ * 2) 回落到本圈子话题池，随机选且避免与上一局重复
+ * 凭证只在服务端，前端永远不直连知乎接口。
+ */
 async function fetchHotPost(circle) {
-  // TODO(真实接入): GET https://developer.zhihu.com/api/v1/hot_list
-  //   headers: Authorization: Bearer <Access Secret>, X-Request-Timestamp
-  //   必须在服务端调用（凭证不进浏览器），前端改为 fetch('/api/hot')
-  return MOCK_POSTS[circle] || MOCK_POSTS.tech;
+  if (location.protocol !== 'file:') {
+    try {
+      const r = await fetch('/api/hot?circle=' + encodeURIComponent(circle));
+      if (r.ok) {
+        const d = await r.json();
+        if (Array.isArray(d.items) && d.items.length) {
+          const it = pick(d.items);
+          STATE.hotSource = d.cached ? '知乎热榜(缓存)' : '知乎热榜';
+          return {
+            title: it.title,
+            body: it.body || '这是知乎热榜上的话题，聊聊你的看法。',
+            // 热榜接口不返回评论，用中性引导语占位，不伪造用户发言
+            hot: [{ n:'热榜', t:'来自知乎实时热榜，暂无评论摘要。' }],
+          };
+        }
+      }
+    } catch (e) { /* 静默回落 */ }
+  }
+
+  // 回落：话题池随机，且不与上一局相同
+  const pool = topicPool(circle);
+  let cand = pool;
+  if (pool.length > 1 && STATE.lastTitle) {
+    const filtered = pool.filter((p) => p.title !== STATE.lastTitle);
+    if (filtered.length) cand = filtered;
+  }
+  const chosen = pick(cand);
+  STATE.lastTitle = chosen.title;
+  STATE.hotSource = '内置话题池';
+  return chosen;
 }
 
 /* ===================== 渲染 ===================== */
@@ -62,7 +93,7 @@ function renderPost() {
     <div class="flex items-center gap-2 mb-2 text-xs">
       <span class="chip" style="background:rgba(0,132,255,.16);border-color:rgba(0,132,255,.4)">
         ${CIRCLES.find((c) => c.id === STATE.circle)?.icon || ''} ${CIRCLES.find((c) => c.id === STATE.circle)?.name || ''}圈</span>
-      <span class="opacity-45">热榜 · mock 数据</span>
+      <span class="opacity-45">${esc(STATE.hotSource || '话题加载中')}</span>
     </div>
     <h2 class="text-lg font-bold leading-snug mb-2">${esc(p.title)}</h2>
     <p class="text-sm opacity-72 leading-relaxed mb-3">${esc(p.body)}</p>

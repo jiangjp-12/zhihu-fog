@@ -31,7 +31,7 @@ function curtain(variant, title, sub = '', hold = 1750, mood = 'norm') {
 }
 
 /** 跑一个带倒计时的阶段 */
-function runPhase(phase, secs, onEnd) {
+function runPhase(phase, secs, onEnd, onStart) {
   STATE.phase = phase;
   STATE.gen = (STATE.gen || 0) + 1;      // 阶段代际：让上一轮遗留的 NPC 发言循环自然退出
   const meta = PHASE_META[phase] || { name: phase, hint: '' };
@@ -41,6 +41,11 @@ function runPhase(phase, secs, onEnd) {
   document.getElementById('roundTag').textContent =
     phase === 'discuss' ? `第 ${STATE.round} / ${CONFIG.rounds} 轮` : meta.name;
   updateComposer(); renderPlayers();
+
+  // onStart 必须在 phase/gen 设定之后触发。
+  // 之前把 npcSpeak() 放在 runPhase() 之前调用，导致它读到的还是上一个阶段，
+  // 首行守卫直接 return —— NPC 全程一句话都不发。
+  if (onStart) onStart();
 
   clearInterval(STATE.tick);
   let left = secs;
@@ -109,8 +114,8 @@ async function startGame() {
   await curtain('discuss', '开始讨论', '只聊热点，别聊 AI', 1900);
   for (let r = 1; r <= CONFIG.rounds; r++) {
     STATE.round = r;
-    npcSpeak('discuss');                          // 不 await：与倒计时并行
-    await runPhase('discuss', CONFIG.durations.discuss);
+    // 作为 onStart 传入：阶段就绪后再让 NPC 陆续发言，与倒计时并行（不 await）
+    await runPhase('discuss', CONFIG.durations.discuss, null, () => npcSpeak('discuss'));
   }
 
   // 4. 识别 60s
@@ -139,8 +144,8 @@ async function startGame() {
 
   // 7. 终轮讨论 45s
   STATE.round = 3;
-  npcSpeak('final_discuss');
-  await runPhase('final_discuss', CONFIG.durations.final_discuss);
+  await runPhase('final_discuss', CONFIG.durations.final_discuss, null,
+                 () => npcSpeak('final_discuss'));
 
   // 8. 终投 30s
   await curtain('vote', '最后一票', '最高票出局', 1650);

@@ -332,6 +332,78 @@ const MOCK_POSTS = {
          {n:'催收研究员',t:'赠与的举证责任在他，不在你。让他证。'}] },
 };
 
+/* ============ 备用话题池 ============
+   每个圈子多备 2 条，配合 fetchHotPost 的随机选取与「不与上一局重复」，
+   即使没有真实热榜也不会每局都看到同一个帖子。 */
+const EXTRA_TOPICS = {
+  tech: [
+    { title:'手机厂商集体取消充电器，环保是真的还是借口？',
+      body:'包装盒薄了一半，说是减少电子垃圾。可我抽屉里的旧充电器功率对不上，最后还是又买了一个。到底谁省了成本？',
+      hot:[{n:'拆机十年',t:'环保省的是运费，你省的是啥？'},
+           {n:'快充协议党',t:'协议一家一个样，通用充电器就是个笑话。'},
+           {n:'抽屉考古学家',t:'我七个充电头，没一个能给新机满速。'}] },
+    { title:'为什么很多人用了几天就把智能手表卖了？',
+      body:'买之前想着记录睡眠、提醒站起来、监测心率。用了一周发现每天最大的仪式是给它充电。',
+      hot:[{n:'戒断成功',t:'它提醒我站起来，我提醒自己别买。'},
+           {n:'跑步真用户',t:'真跑步的人离不开，不跑的人图个新鲜。'},
+           {n:'充电线管理员',t:'多一个要充电的东西，就多一份焦虑。'}] },
+  ],
+  emo: [
+    { title:'两个人在一起三年，聊天记录越来越短，正常吗？',
+      body:'从前一天几百条，现在剩「到了」「吃了」「睡吧」。也没吵架，就是没什么可说的了。',
+      hot:[{n:'老夫老妻',t:'话少不等于情少，但你介意就是问题。'},
+           {n:'刚分手',t:'我们最后半年也这样，别骗自己。'},
+           {n:'心理系旁听',t:'你在意的是话变少，还是他变了？'}] },
+    { title:'父母突然对你很客气，是种什么信号？',
+      body:'以前催婚催工作，现在说话小心翼翼，问一句还怕打扰我。这种客气让我更难受。',
+      hot:[{n:'三十岁儿子',t:'他们开始怕你了，这才是真的老了。'},
+           {n:'远嫁',t:'客气是距离的另一种说法。'},
+           {n:'陪护半年',t:'趁还能听他们唠叨，别嫌烦。'}] },
+  ],
+  work: [
+    { title:'为什么开会越多的公司，效率反而越低？',
+      body:'一天四个会，每个会都在同步进度。真正干活的时间被切成碎片，最后靠加班补。',
+      hot:[{n:'项目管理',t:'会开多了说明没人敢担责。'},
+           {n:'研发五年',t:'同步会的本质是领导不看文档。'},
+           {n:'日历爆满',t:'我的产出发生在所有人下班之后。'}] },
+    { title:'裸辞三个月还没找到工作，是我的问题吗？',
+      body:'走的时候觉得凭本事到哪都行。三个月过去，投的简历大半没回，开始怀疑自己。',
+      hot:[{n:'HR视角',t:'空窗期不致命，讲不清为什么走才致命。'},
+           {n:'裸辞两次',t:'不是你的问题，但也不全是环境的问题。'},
+           {n:'去年上岸',t:'先找个能过渡的，别在家里等状态回来。'}] },
+  ],
+  campus: [
+    { title:'大学社团到底值不值得花时间？',
+      body:'进了三个社团，一年下来除了几张合照和一堆群消息，好像什么也没留下。',
+      hot:[{n:'退了三个',t:'值不值看你在里面做事还是凑数。'},
+           {n:'社长本人',t:'办活动学到的东西，课堂真的教不了。'},
+           {n:'大四回望',t:'留下来的是人，不是经历。'}] },
+    { title:'考研二战值得吗？',
+      body:'一战差十分。家里说再来一年也行，但看着同学入职发工资，心里越来越慌。',
+      hot:[{n:'二战上岸',t:'差十分说明方法有问题，不是时间不够。'},
+           {n:'放弃了',t:'我去工作了，现在也没后悔。'},
+           {n:'三战劝退',t:'先想清楚读研要干什么，再决定。'}] },
+  ],
+  law: [
+    { title:'租房押金不退，除了忍还能怎么办？',
+      body:'退租时房东说墙有污渍、地板有划痕，两千押金一分不退。合同里没写这些标准。',
+      hot:[{n:'执业五年',t:'没约定标准，举证责任在房东。'},
+           {n:'追回过',t:'先要书面扣款明细，他多半不敢给。'},
+           {n:'调解见过',t:'两千块走小额诉讼，成本比你想的低。'}] },
+    { title:'公司要求签「自愿放弃社保」，签了有效吗？',
+      body:'入职时 HR 拿出一份声明，说签了工资能多几百。旁边同事都签了。',
+      hot:[{n:'劳动法方向',t:'签了也无效，社保是法定义务。'},
+           {n:'仲裁赢过',t:'那几百块是拿你的未来换的。'},
+           {n:'HR不这么干',t:'敢让你签这个的公司，还有别的雷。'}] },
+  ],
+};
+
+/** 某圈子的完整话题池：主话题 + 备用 */
+function topicPool(circle) {
+  const main = MOCK_POSTS[circle] || MOCK_POSTS.tech;
+  return [main, ...(EXTRA_TOPICS[circle] || [])];
+}
+
 /* ============ 昵称 / 头像池 ============ */
 const NICK_A = ['深夜','摸鱼','热心','匿名','路过','沉默','半糖','弱小','退堂鼓','橘子','键盘','咸鱼'];
 const NICK_B = ['冲浪选手','的鱼','群众','用户','看客','的螺丝钉','去冰','无助','首席','汽水','侠客','翻身'];
@@ -514,7 +586,9 @@ function buildSystem(actor) {
 
 /** 组装上下文：帖子 + 最近发言 */
 function buildContext(phase) {
-  const post = STATE.post;
+  // 帖子可能尚未加载（例如提前进入辩解阶段）。缺失时不抛错，
+  // 否则会连带打断 speak() 的本地模板降级路径。
+  const post = STATE.post || { title: '(话题加载中)', body: '' };
   let ctx = `帖子标题：${post.title}\n帖子摘要：${post.body}\n\n`;
   const recent = STATE.comments.slice(-8).map((c) => `${c.author}：${c.text}`).join('\n');
   if (recent) ctx += `最近的评论：\n${recent}\n\n`;
@@ -654,12 +728,43 @@ function buildPlayers() {
   STATE.players.forEach((p) => { STATE.markCounts[p.id] = 0; });
 }
 
-/** 接口调用点：真实接入时替换为知乎热榜 / 搜索 API（见 references/http-api.md） */
+/**
+ * 取一个讨论用的帖子。
+ * 1) 先试服务端热榜代理 /api/hot（需 ZHIHU_ACCESS_SECRET，未配置则 503）
+ * 2) 回落到本圈子话题池，随机选且避免与上一局重复
+ * 凭证只在服务端，前端永远不直连知乎接口。
+ */
 async function fetchHotPost(circle) {
-  // TODO(真实接入): GET https://developer.zhihu.com/api/v1/hot_list
-  //   headers: Authorization: Bearer <Access Secret>, X-Request-Timestamp
-  //   必须在服务端调用（凭证不进浏览器），前端改为 fetch('/api/hot')
-  return MOCK_POSTS[circle] || MOCK_POSTS.tech;
+  if (location.protocol !== 'file:') {
+    try {
+      const r = await fetch('/api/hot?circle=' + encodeURIComponent(circle));
+      if (r.ok) {
+        const d = await r.json();
+        if (Array.isArray(d.items) && d.items.length) {
+          const it = pick(d.items);
+          STATE.hotSource = d.cached ? '知乎热榜(缓存)' : '知乎热榜';
+          return {
+            title: it.title,
+            body: it.body || '这是知乎热榜上的话题，聊聊你的看法。',
+            // 热榜接口不返回评论，用中性引导语占位，不伪造用户发言
+            hot: [{ n:'热榜', t:'来自知乎实时热榜，暂无评论摘要。' }],
+          };
+        }
+      }
+    } catch (e) { /* 静默回落 */ }
+  }
+
+  // 回落：话题池随机，且不与上一局相同
+  const pool = topicPool(circle);
+  let cand = pool;
+  if (pool.length > 1 && STATE.lastTitle) {
+    const filtered = pool.filter((p) => p.title !== STATE.lastTitle);
+    if (filtered.length) cand = filtered;
+  }
+  const chosen = pick(cand);
+  STATE.lastTitle = chosen.title;
+  STATE.hotSource = '内置话题池';
+  return chosen;
 }
 
 /* ===================== 渲染 ===================== */
@@ -670,7 +775,7 @@ function renderPost() {
     <div class="flex items-center gap-2 mb-2 text-xs">
       <span class="chip" style="background:rgba(0,132,255,.16);border-color:rgba(0,132,255,.4)">
         ${CIRCLES.find((c) => c.id === STATE.circle)?.icon || ''} ${CIRCLES.find((c) => c.id === STATE.circle)?.name || ''}圈</span>
-      <span class="opacity-45">热榜 · mock 数据</span>
+      <span class="opacity-45">${esc(STATE.hotSource || '话题加载中')}</span>
     </div>
     <h2 class="text-lg font-bold leading-snug mb-2">${esc(p.title)}</h2>
     <p class="text-sm opacity-72 leading-relaxed mb-3">${esc(p.body)}</p>
@@ -810,7 +915,7 @@ function curtain(variant, title, sub = '', hold = 1750, mood = 'norm') {
 }
 
 /** 跑一个带倒计时的阶段 */
-function runPhase(phase, secs, onEnd) {
+function runPhase(phase, secs, onEnd, onStart) {
   STATE.phase = phase;
   STATE.gen = (STATE.gen || 0) + 1;      // 阶段代际：让上一轮遗留的 NPC 发言循环自然退出
   const meta = PHASE_META[phase] || { name: phase, hint: '' };
@@ -820,6 +925,11 @@ function runPhase(phase, secs, onEnd) {
   document.getElementById('roundTag').textContent =
     phase === 'discuss' ? `第 ${STATE.round} / ${CONFIG.rounds} 轮` : meta.name;
   updateComposer(); renderPlayers();
+
+  // onStart 必须在 phase/gen 设定之后触发。
+  // 之前把 npcSpeak() 放在 runPhase() 之前调用，导致它读到的还是上一个阶段，
+  // 首行守卫直接 return —— NPC 全程一句话都不发。
+  if (onStart) onStart();
 
   clearInterval(STATE.tick);
   let left = secs;
@@ -888,8 +998,8 @@ async function startGame() {
   await curtain('discuss', '开始讨论', '只聊热点，别聊 AI', 1900);
   for (let r = 1; r <= CONFIG.rounds; r++) {
     STATE.round = r;
-    npcSpeak('discuss');                          // 不 await：与倒计时并行
-    await runPhase('discuss', CONFIG.durations.discuss);
+    // 作为 onStart 传入：阶段就绪后再让 NPC 陆续发言，与倒计时并行（不 await）
+    await runPhase('discuss', CONFIG.durations.discuss, null, () => npcSpeak('discuss'));
   }
 
   // 4. 识别 60s
@@ -918,8 +1028,8 @@ async function startGame() {
 
   // 7. 终轮讨论 45s
   STATE.round = 3;
-  npcSpeak('final_discuss');
-  await runPhase('final_discuss', CONFIG.durations.final_discuss);
+  await runPhase('final_discuss', CONFIG.durations.final_discuss, null,
+                 () => npcSpeak('final_discuss'));
 
   // 8. 终投 30s
   await curtain('vote', '最后一票', '最高票出局', 1650);
@@ -1562,9 +1672,12 @@ function renderAuth(s) {
     </div>`;
     return;
   }
-  const tip = s.local ? '（需部署到云端后可用）' : '';
+  // 登录是选填增强项：不登录也能玩完整一局（系统会分配匿名昵称）。
+  // 明确标注，避免评委误以为必须登录或功能损坏。
+  const tip = s.local ? '（需部署后可用）' : '（选填）';
   box.innerHTML = `<button class="btn-g text-xs px-3 py-1.5" onclick="zhLogin()"
-      ${s.local ? 'title="本地打开无后端，部署后可用"' : ''}>知乎账号登录${tip}</button>`;
+      title="选填：登录后头像入场。不登录同样可以完整体验，系统会分配匿名昵称">
+      知乎账号登录${tip}</button>`;
 }
 
 /* ---------- 启动 ---------- */
