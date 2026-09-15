@@ -5,6 +5,7 @@
    ============================================================ */
 function finish() {
   clearInterval(STATE.tick);
+  hideHunt();
   STATE.ended = true;
   const n = aliveAI().length;
   const outcome = n >= 2 ? { key:'lose', title:'伪人完胜', sub:'两个 AI 活到了最后',
@@ -124,7 +125,7 @@ function restart() {
   Object.assign(STATE, {
     phase:'lobby', round:0, players:[], me:null, post:null, comments:[],
     marks:{}, markCounts:{}, votes:{}, history:[], voteLog:[],
-    spectatorMsgs:[], replyTo:null, nightPicks:{}, nightMsg:'', lastOut:null,
+    spectatorMsgs:[], huntMsgs:[], replyTo:null, nightPicks:{}, nightMsg:'', lastOut:null,
     ended:false, replay:false, ratings:[],
   });
   CID = 0;

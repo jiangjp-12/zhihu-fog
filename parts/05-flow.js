@@ -101,9 +101,9 @@ async function npcSpeak(phase, filterFn) {
 
 /* ===================== 主流程 ===================== */
 async function startGame() {
+  await matchPlayers();                          // 可见地凑满 5 席
   document.getElementById('lobby').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
-  buildPlayers();
   STATE.post = await fetchHotPost(STATE.circle);
   renderPost(); renderPlayers(); renderComments();
 
@@ -120,9 +120,12 @@ async function startGame() {
 
   // 4. 识别 60s
   await curtain('hunt', '现在开始找 AI', '标记是私密的，不影响投票', 1900);
-  await runPhase('mark', CONFIG.durations.mark, () => { npcMark(); });
+  // 推理室独立开窗，「谁是伪人」的讨论不进评论区
+  await runPhase('mark', CONFIG.durations.mark, () => { npcMark(); },
+                 () => { showHunt('识别阶段'); npcHunt(); });
 
   // 5. 第一轮投票 30s
+  hideHunt();
   await curtain('vote', '投票折叠', '存活者各 1 票，不能投自己', 1750);
   await runPhase('vote1', CONFIG.durations.vote1);
   const out1 = tallyVotes('vote1');
@@ -144,10 +147,12 @@ async function startGame() {
 
   // 7. 终轮讨论 45s
   STATE.round = 3;
+  // 终轮就是「谁最可疑」的正面交锋，同样走推理室，不污染评论区
   await runPhase('final_discuss', CONFIG.durations.final_discuss, null,
-                 () => npcSpeak('final_discuss'));
+                 () => { showHunt('终轮讨论'); npcHunt(); });
 
   // 8. 终投 30s
+  hideHunt();
   await curtain('vote', '最后一票', '最高票出局', 1650);
   await runPhase('vote2', CONFIG.durations.vote2);
   tallyVotes('vote2');

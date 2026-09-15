@@ -11,7 +11,7 @@ const STATE = {
   votes: {},              // 当前轮投票 {voterId:targetId}
   history: [],            // 复盘：每阶段快照
   logs: [], ratings: [],  // AI 调用日志 / 像人评分
-  spectatorMsgs: [], replyTo: null,
+  spectatorMsgs: [], huntMsgs: [], replyTo: null,
   nightPicks: {}, timer: null, tick: null, ended: false, replay: false,
 };
 
@@ -94,6 +94,7 @@ function renderPost() {
       <span class="chip" style="background:rgba(0,132,255,.16);border-color:rgba(0,132,255,.4)">
         ${CIRCLES.find((c) => c.id === STATE.circle)?.icon || ''} ${CIRCLES.find((c) => c.id === STATE.circle)?.name || ''}圈</span>
       <span class="opacity-45">${esc(STATE.hotSource || '话题加载中')}</span>
+      <span id="postMeta" class="ml-auto flex gap-3 opacity-70"></span>
     </div>
     <h2 class="text-lg font-bold leading-snug mb-2">${esc(p.title)}</h2>
     <p class="text-sm opacity-72 leading-relaxed mb-3">${esc(p.body)}</p>
@@ -164,6 +165,7 @@ function renderComments() {
     : '<div class="text-sm opacity-40 py-6 text-center">还没有人发言</div>';
   box.scrollTop = box.scrollHeight;
   document.getElementById('cmtCount').textContent = `${STATE.comments.length} 条`;
+  renderMeta();
 }
 
 /** 评分按钮：玩家对 AI 发言打「像人 / 不像人」，写入 logs */

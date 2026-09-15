@@ -189,4 +189,86 @@ function sendSpec() {
   }
   renderSpecMsgs();
 }
+
+/* ============ 匹配：可见地凑满 5 席（3 真人 + 2 伪人） ============ */
+async function matchPlayers() {
+  const box = document.getElementById('matchBox');
+  const seats = document.getElementById('matchSeats');
+  buildPlayers();
+  box.classList.remove('hidden');
+  const draw = (n) => {
+    seats.innerHTML = STATE.players.map((p, i) => `
+      <div class="glass-b p-2 text-center ${i < n ? 'fade-in' : 'opacity-25'}">
+        <div class="text-xl">${i < n ? p.avatar : '·'}</div>
+        <div class="text-[11px] truncate mt-0.5">${i < n ? esc(p.name) : '等待中'}</div>
+        ${i < n && p.isMe ? '<span class="chip text-[10px] bg-sky-500/25">你</span>' : ''}
+      </div>`).join('');
+  };
+  draw(0);
+  for (let n = 1; n <= 5; n++) {
+    document.getElementById('matchMeta').textContent = `已就位 ${n}/5 席`;
+    draw(n);
+    await sleep(jitter(400, 880));
+  }
+  document.getElementById('matchTitle').textContent = '匹配完成 · 3 真人 + 2 伪人';
+  await sleep(650);
+  box.classList.add('hidden');
+}
+
+/* ============ 伪人推理室：独立窗口，发言不进评论区 ============ */
+function showHunt(tag) {
+  const el = document.getElementById('hunt');
+  el.classList.remove('hidden');
+  document.getElementById('huntTag').textContent = tag;
+  document.getElementById('huntBody').classList.remove('hidden');
+  document.getElementById('huntToggle').textContent = '收起';
+  document.getElementById('huntInput').disabled = !canAct();
+  renderHunt();
+}
+function hideHunt() { document.getElementById('hunt').classList.add('hidden'); }
+function toggleHunt() {
+  const b = document.getElementById('huntBody');
+  const open = !b.classList.contains('hidden');
+  b.classList.toggle('hidden', open);
+  document.getElementById('huntToggle').textContent = open ? '展开' : '收起';
+}
+function renderHunt() {
+  const box = document.getElementById('huntMsgs');
+  box.innerHTML = STATE.huntMsgs.length
+    ? STATE.huntMsgs.map((m) => `<div class="fade-in">
+        <b class="opacity-70 text-xs">${esc(m.who)}</b>
+        <span class="opacity-90">${esc(m.text)}</span></div>`).join('')
+    : '<div class="opacity-40 text-xs">还没有人开口。先说出你的怀疑？</div>';
+  box.scrollTop = box.scrollHeight;
+}
+function addHunt(who, text) { STATE.huntMsgs.push({ who, text }); renderHunt(); }
+function sendHunt() {
+  const el = document.getElementById('huntInput');
+  const t = el.value.trim();
+  if (!t || !canAct()) return;
+  addHunt(STATE.me.name + '(你)', t);
+  el.value = '';
+}
+/** NPC 在推理室互相指认；只写这里，不落评论区 */
+async function npcHunt() {
+  const gen = STATE.gen;
+  for (const npc of alive().filter((p) => !p.isMe).sort(() => Math.random() - 0.5)) {
+    if (STATE.gen !== gen) return;
+    await sleep(jitter(1100, 3200));
+    if (STATE.gen !== gen) return;
+    const others = alive().filter((x) => x.id !== npc.id);
+    let t = pick(T.probe);
+    if (others.length && Math.random() < 0.55) t += ` 比如${pick(others).name}？`;
+    addHunt(npc.name, t);
+  }
+}
+
+/** 帖子卡右侧：在场人数 + 本局讨论热度（均为真实计数，非编造） */
+function renderMeta() {
+  const el = document.getElementById('postMeta');
+  if (!el) return;
+  const inter = STATE.comments.reduce((s, c) => s + c.likes + c.dislikes, 0);
+  el.innerHTML = `<span title="本局在场存活人数">👥 在场 ${alive().length}/5</span>
+    <span title="本局讨论热度 = 发言数×10 + 互动数×3">🔥 热度 ${STATE.comments.length * 10 + inter * 3}</span>`;
+}
 </script>

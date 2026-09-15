@@ -115,6 +115,15 @@
     <h1 class="text-xl font-bold mb-1">选择你的圈子</h1>
     <p class="text-sm opacity-65 mb-4">5 席 = 3 真人 + 2 AI 伪人。找出伪人并投票折叠，或伪装到最后。</p>
     <div id="circles" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5"></div>
+    <!-- 匹配进度：进入房间后显示，凑满 3 个真人席位 -->
+    <div id="matchBox" class="hidden mb-4">
+      <div class="flex items-center gap-2 text-sm mb-2">
+        <span class="w-2 h-2 rounded-full bg-sky-400 pulse"></span>
+        <b id="matchTitle">正在匹配…</b>
+        <span id="matchMeta" class="opacity-55 text-xs ml-auto"></span>
+      </div>
+      <div id="matchSeats" class="grid grid-cols-5 gap-2"></div>
+    </div>
     <div class="flex items-center gap-3 flex-wrap">
       <div class="flex items-center gap-2.5 glass-b px-3 py-2">
         <span id="myAvatar" class="w-9 h-9 rounded-full grid place-items-center bg-white/10 text-lg">🦊</span>
@@ -183,6 +192,28 @@
   <!-- ===== 结算 / 复盘 ===== -->
   <section id="result" class="hidden glass p-6 fade-in"></section>
 </main>
+
+<!-- ===== 伪人推理室：识别/终轮阶段的独立讨论窗，与评论区分开 ===== -->
+<div id="hunt" class="hidden fixed z-[60] right-4 bottom-16 w-[min(400px,calc(100vw-2rem))] glass flex flex-col"
+     role="dialog" aria-label="伪人推理室">
+  <div class="flex items-center gap-2 px-3 py-2 border-b border-white/10 shrink-0">
+    <span class="text-base">🕵</span>
+    <b class="text-sm">伪人推理室</b>
+    <span id="huntTag" class="chip text-[10px] opacity-60"></span>
+    <button class="ml-auto btn-g px-2 py-0.5 text-xs" onclick="toggleHunt()" id="huntToggle">收起</button>
+  </div>
+  <div id="huntBody" class="flex flex-col">
+    <div class="px-3 py-1.5 text-[11px] opacity-50 border-b border-white/5">
+      这里只聊「谁是伪人」，发言不进评论区
+    </div>
+    <div id="huntMsgs" class="p-3 space-y-2 text-sm overflow-y-auto" style="max-height:34vh"></div>
+    <div class="p-2.5 pt-0 flex gap-2">
+      <label for="huntInput" class="sr-only">推理室发言</label>
+      <input id="huntInput" placeholder="说说你怀疑谁，为什么…" onkeydown="if(event.key==='Enter')sendHunt()">
+      <button class="btn px-3 text-sm shrink-0" onclick="sendHunt()">发送</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== 底部调试抽屉 ===== -->
 <div id="drawer" class="closed fixed bottom-0 left-0 right-0 z-50 glass rounded-b-none max-h-[74vh] flex flex-col">
@@ -693,7 +724,7 @@ const STATE = {
   votes: {},              // 当前轮投票 {voterId:targetId}
   history: [],            // 复盘：每阶段快照
   logs: [], ratings: [],  // AI 调用日志 / 像人评分
-  spectatorMsgs: [], replyTo: null,
+  spectatorMsgs: [], huntMsgs: [], replyTo: null,
   nightPicks: {}, timer: null, tick: null, ended: false, replay: false,
 };
 
@@ -776,6 +807,7 @@ function renderPost() {
       <span class="chip" style="background:rgba(0,132,255,.16);border-color:rgba(0,132,255,.4)">
         ${CIRCLES.find((c) => c.id === STATE.circle)?.icon || ''} ${CIRCLES.find((c) => c.id === STATE.circle)?.name || ''}圈</span>
       <span class="opacity-45">${esc(STATE.hotSource || '话题加载中')}</span>
+      <span id="postMeta" class="ml-auto flex gap-3 opacity-70"></span>
     </div>
     <h2 class="text-lg font-bold leading-snug mb-2">${esc(p.title)}</h2>
     <p class="text-sm opacity-72 leading-relaxed mb-3">${esc(p.body)}</p>
@@ -846,6 +878,7 @@ function renderComments() {
     : '<div class="text-sm opacity-40 py-6 text-center">还没有人发言</div>';
   box.scrollTop = box.scrollHeight;
   document.getElementById('cmtCount').textContent = `${STATE.comments.length} 条`;
+  renderMeta();
 }
 
 /** 评分按钮：玩家对 AI 发言打「像人 / 不像人」，写入 logs */
@@ -985,9 +1018,9 @@ async function npcSpeak(phase, filterFn) {
 
 /* ===================== 主流程 ===================== */
 async function startGame() {
+  await matchPlayers();                          // 可见地凑满 5 席
   document.getElementById('lobby').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
-  buildPlayers();
   STATE.post = await fetchHotPost(STATE.circle);
   renderPost(); renderPlayers(); renderComments();
 
@@ -1004,9 +1037,12 @@ async function startGame() {
 
   // 4. 识别 60s
   await curtain('hunt', '现在开始找 AI', '标记是私密的，不影响投票', 1900);
-  await runPhase('mark', CONFIG.durations.mark, () => { npcMark(); });
+  // 推理室独立开窗，「谁是伪人」的讨论不进评论区
+  await runPhase('mark', CONFIG.durations.mark, () => { npcMark(); },
+                 () => { showHunt('识别阶段'); npcHunt(); });
 
   // 5. 第一轮投票 30s
+  hideHunt();
   await curtain('vote', '投票折叠', '存活者各 1 票，不能投自己', 1750);
   await runPhase('vote1', CONFIG.durations.vote1);
   const out1 = tallyVotes('vote1');
@@ -1028,10 +1064,12 @@ async function startGame() {
 
   // 7. 终轮讨论 45s
   STATE.round = 3;
+  // 终轮就是「谁最可疑」的正面交锋，同样走推理室，不污染评论区
   await runPhase('final_discuss', CONFIG.durations.final_discuss, null,
-                 () => npcSpeak('final_discuss'));
+                 () => { showHunt('终轮讨论'); npcHunt(); });
 
   // 8. 终投 30s
+  hideHunt();
   await curtain('vote', '最后一票', '最高票出局', 1650);
   await runPhase('vote2', CONFIG.durations.vote2);
   tallyVotes('vote2');
@@ -1333,6 +1371,88 @@ function sendSpec() {
   }
   renderSpecMsgs();
 }
+
+/* ============ 匹配：可见地凑满 5 席（3 真人 + 2 伪人） ============ */
+async function matchPlayers() {
+  const box = document.getElementById('matchBox');
+  const seats = document.getElementById('matchSeats');
+  buildPlayers();
+  box.classList.remove('hidden');
+  const draw = (n) => {
+    seats.innerHTML = STATE.players.map((p, i) => `
+      <div class="glass-b p-2 text-center ${i < n ? 'fade-in' : 'opacity-25'}">
+        <div class="text-xl">${i < n ? p.avatar : '·'}</div>
+        <div class="text-[11px] truncate mt-0.5">${i < n ? esc(p.name) : '等待中'}</div>
+        ${i < n && p.isMe ? '<span class="chip text-[10px] bg-sky-500/25">你</span>' : ''}
+      </div>`).join('');
+  };
+  draw(0);
+  for (let n = 1; n <= 5; n++) {
+    document.getElementById('matchMeta').textContent = `已就位 ${n}/5 席`;
+    draw(n);
+    await sleep(jitter(400, 880));
+  }
+  document.getElementById('matchTitle').textContent = '匹配完成 · 3 真人 + 2 伪人';
+  await sleep(650);
+  box.classList.add('hidden');
+}
+
+/* ============ 伪人推理室：独立窗口，发言不进评论区 ============ */
+function showHunt(tag) {
+  const el = document.getElementById('hunt');
+  el.classList.remove('hidden');
+  document.getElementById('huntTag').textContent = tag;
+  document.getElementById('huntBody').classList.remove('hidden');
+  document.getElementById('huntToggle').textContent = '收起';
+  document.getElementById('huntInput').disabled = !canAct();
+  renderHunt();
+}
+function hideHunt() { document.getElementById('hunt').classList.add('hidden'); }
+function toggleHunt() {
+  const b = document.getElementById('huntBody');
+  const open = !b.classList.contains('hidden');
+  b.classList.toggle('hidden', open);
+  document.getElementById('huntToggle').textContent = open ? '展开' : '收起';
+}
+function renderHunt() {
+  const box = document.getElementById('huntMsgs');
+  box.innerHTML = STATE.huntMsgs.length
+    ? STATE.huntMsgs.map((m) => `<div class="fade-in">
+        <b class="opacity-70 text-xs">${esc(m.who)}</b>
+        <span class="opacity-90">${esc(m.text)}</span></div>`).join('')
+    : '<div class="opacity-40 text-xs">还没有人开口。先说出你的怀疑？</div>';
+  box.scrollTop = box.scrollHeight;
+}
+function addHunt(who, text) { STATE.huntMsgs.push({ who, text }); renderHunt(); }
+function sendHunt() {
+  const el = document.getElementById('huntInput');
+  const t = el.value.trim();
+  if (!t || !canAct()) return;
+  addHunt(STATE.me.name + '(你)', t);
+  el.value = '';
+}
+/** NPC 在推理室互相指认；只写这里，不落评论区 */
+async function npcHunt() {
+  const gen = STATE.gen;
+  for (const npc of alive().filter((p) => !p.isMe).sort(() => Math.random() - 0.5)) {
+    if (STATE.gen !== gen) return;
+    await sleep(jitter(1100, 3200));
+    if (STATE.gen !== gen) return;
+    const others = alive().filter((x) => x.id !== npc.id);
+    let t = pick(T.probe);
+    if (others.length && Math.random() < 0.55) t += ` 比如${pick(others).name}？`;
+    addHunt(npc.name, t);
+  }
+}
+
+/** 帖子卡右侧：在场人数 + 本局讨论热度（均为真实计数，非编造） */
+function renderMeta() {
+  const el = document.getElementById('postMeta');
+  if (!el) return;
+  const inter = STATE.comments.reduce((s, c) => s + c.likes + c.dislikes, 0);
+  el.innerHTML = `<span title="本局在场存活人数">👥 在场 ${alive().length}/5</span>
+    <span title="本局讨论热度 = 发言数×10 + 互动数×3">🔥 热度 ${STATE.comments.length * 10 + inter * 3}</span>`;
+}
 </script>
 <script>
 /* ============================================================
@@ -1341,6 +1461,7 @@ function sendSpec() {
    ============================================================ */
 function finish() {
   clearInterval(STATE.tick);
+  hideHunt();
   STATE.ended = true;
   const n = aliveAI().length;
   const outcome = n >= 2 ? { key:'lose', title:'伪人完胜', sub:'两个 AI 活到了最后',
@@ -1460,7 +1581,7 @@ function restart() {
   Object.assign(STATE, {
     phase:'lobby', round:0, players:[], me:null, post:null, comments:[],
     marks:{}, markCounts:{}, votes:{}, history:[], voteLog:[],
-    spectatorMsgs:[], replyTo:null, nightPicks:{}, nightMsg:'', lastOut:null,
+    spectatorMsgs:[], huntMsgs:[], replyTo:null, nightPicks:{}, nightMsg:'', lastOut:null,
     ended:false, replay:false, ratings:[],
   });
   CID = 0;
